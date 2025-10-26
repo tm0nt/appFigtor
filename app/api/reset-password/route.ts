@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     // Atualizar senha e remover token
     await query(
       `UPDATE public."User" 
-       SET password = $1, 
+       SET passwordHash = $1, 
            "resetToken" = NULL, 
            "resetTokenExpiry" = NULL,
            "updatedAt" = NOW()
