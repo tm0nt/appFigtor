@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     // Inserir usuário no banco
     const sql = `
-      INSERT INTO public."User" ("email", "name", "password")
+      INSERT INTO public."User" ("email", "name", "passwordHash")
       VALUES ($1, $2, $3)
       ON CONFLICT ("email") DO NOTHING
       RETURNING "id", "email", "name"
