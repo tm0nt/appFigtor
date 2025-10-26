@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { query } from "@/lib/db"
 
+export const runtime = "nodejs"
+
 export async function GET() {
   try {
     const session = await auth()
@@ -12,42 +14,12 @@ export async function GET() {
 
     const userId = session.user.id
 
-    // Buscar usuário com profile e endereço de faturamento em uma única query
-    const { rows } = await query<{
-      userId: string
-      email: string
-      name: string | null
-      company: string | null
-      userPhone: string | null
-      userCreatedAt: string
-      userUpdatedAt: string
-      profileId: string | null
-      personType: string | null
-      cpf: string | null
-      cnpj: string | null
-      companyName: string | null
-      stateReg: string | null
-      birthDate: string | null
-      profilePhone: string | null
-      profileCreatedAt: string | null
-      profileUpdatedAt: string | null
-      addressId: string | null
-      addressLabel: string | null
-      line1: string | null
-      line2: string | null
-      city: string | null
-      state: string | null
-      postalCode: string | null
-      country: string | null
-      addressCreatedAt: string | null
-      addressUpdatedAt: string | null
-    }>(
+    // ✅ SEM u.company e u.phone (não existem na tabela User)
+    const { rows } = await query(
       `SELECT 
         u.id as "userId",
         u.email,
         u.name,
-        u.company,
-        u.phone as "userPhone",
         u."createdAt" as "userCreatedAt",
         u."updatedAt" as "userUpdatedAt",
         
@@ -91,8 +63,6 @@ export async function GET() {
         id: row.userId,
         email: row.email,
         name: row.name,
-        company: row.company,
-        phone: row.userPhone,
         createdAt: row.userCreatedAt,
         updatedAt: row.userUpdatedAt,
       },
@@ -107,8 +77,8 @@ export async function GET() {
             stateReg: row.stateReg,
             birthDate: row.birthDate,
             phone: row.profilePhone,
-            createdAt: row.profileCreatedAt!,
-            updatedAt: row.profileUpdatedAt!,
+            createdAt: row.profileCreatedAt,
+            updatedAt: row.profileUpdatedAt,
           }
         : null,
       billingAddress: row.addressId
@@ -116,26 +86,25 @@ export async function GET() {
             id: row.addressId,
             userId: row.userId,
             label: row.addressLabel,
-            line1: row.line1!,
+            line1: row.line1,
             line2: row.line2,
-            city: row.city!,
-            state: row.state!,
-            postalCode: row.postalCode!,
-            country: row.country!,
-            createdAt: row.addressCreatedAt!,
-            updatedAt: row.addressUpdatedAt!,
+            city: row.city,
+            state: row.state,
+            postalCode: row.postalCode,
+            country: row.country,
+            createdAt: row.addressCreatedAt,
+            updatedAt: row.addressUpdatedAt,
           }
         : null,
     }
 
     return NextResponse.json(response)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao buscar perfil:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Erro interno" }, { status: 500 })
   }
 }
 
-// app/api/user/profile/route.ts (adicione ao arquivo acima)
 export async function PATCH(req: Request) {
   try {
     const session = await auth()
@@ -145,14 +114,15 @@ export async function PATCH(req: Request) {
 
     const userId = session.user.id
     const body = await req.json()
-    const { name, company, email, phone, profile, billingAddress } = body
+    const { name, email, profile, billingAddress } = body
 
-    // Inicia transação
+    console.log("📝 Atualizando perfil do usuário:", userId)
+
     await query("BEGIN")
 
     try {
-      // 1. Atualizar User
-      if (name !== undefined || company !== undefined || email !== undefined || phone !== undefined) {
+      // 1. Atualizar User (APENAS name e email)
+      if (name !== undefined || email !== undefined) {
         const updates: string[] = []
         const values: any[] = []
         let paramIndex = 1
@@ -161,17 +131,9 @@ export async function PATCH(req: Request) {
           updates.push(`name = $${paramIndex++}`)
           values.push(name)
         }
-        if (company !== undefined) {
-          updates.push(`company = $${paramIndex++}`)
-          values.push(company)
-        }
         if (email !== undefined) {
           updates.push(`email = $${paramIndex++}`)
           values.push(email)
-        }
-        if (phone !== undefined) {
-          updates.push(`phone = $${paramIndex++}`)
-          values.push(phone)
         }
 
         updates.push(`"updatedAt" = NOW()`)
@@ -183,17 +145,18 @@ export async function PATCH(req: Request) {
            WHERE id = $${paramIndex}`,
           values
         )
+
+        console.log("✅ User atualizado")
       }
 
       // 2. Atualizar ou criar UserProfile
       if (profile) {
-        const { rows: existingProfile } = await query<{ id: string }>(
+        const { rows: existingProfile } = await query(
           `SELECT id FROM public."UserProfile" WHERE "userId" = $1`,
           [userId]
         )
 
         if (existingProfile[0]) {
-          // UPDATE
           const updates: string[] = []
           const values: any[] = []
           let paramIndex = 1
@@ -218,6 +181,10 @@ export async function PATCH(req: Request) {
             updates.push(`"birthDate" = $${paramIndex++}`)
             values.push(profile.birthDate)
           }
+          if (profile.phone !== undefined) {
+            updates.push(`phone = $${paramIndex++}`)
+            values.push(profile.phone)
+          }
 
           if (updates.length > 0) {
             updates.push(`"updatedAt" = NOW()`)
@@ -229,13 +196,13 @@ export async function PATCH(req: Request) {
                WHERE "userId" = $${paramIndex}`,
               values
             )
+            console.log("✅ UserProfile atualizado")
           }
         } else {
-          // INSERT
           await query(
             `INSERT INTO public."UserProfile" 
-             ("userId", "personType", cpf, cnpj, "companyName", "birthDate") 
-             VALUES ($1, $2, $3, $4, $5, $6)`,
+             ("userId", "personType", cpf, cnpj, "companyName", "birthDate", phone) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
               userId,
               profile.personType || "PF",
@@ -243,20 +210,21 @@ export async function PATCH(req: Request) {
               profile.cnpj || null,
               profile.companyName || null,
               profile.birthDate || null,
+              profile.phone || null,
             ]
           )
+          console.log("✅ UserProfile criado")
         }
       }
 
-      // 3. Atualizar ou criar Address (billing)
+      // 3. Atualizar ou criar Address
       if (billingAddress) {
-        const { rows: existingAddress } = await query<{ id: string }>(
+        const { rows: existingAddress } = await query(
           `SELECT id FROM public."Address" WHERE "userId" = $1 AND label = 'billing'`,
           [userId]
         )
 
         if (existingAddress[0]) {
-          // UPDATE
           const updates: string[] = []
           const values: any[] = []
           let paramIndex = 1
@@ -292,9 +260,9 @@ export async function PATCH(req: Request) {
                WHERE id = $${paramIndex}`,
               values
             )
+            console.log("✅ Address atualizado")
           }
         } else {
-          // INSERT
           await query(
             `INSERT INTO public."Address" 
              ("userId", label, line1, line2, city, state, "postalCode", country) 
@@ -308,22 +276,36 @@ export async function PATCH(req: Request) {
               billingAddress.postalCode || "",
             ]
           )
+          console.log("✅ Address criado")
         }
       }
 
       await query("COMMIT")
+      console.log("✅ Transação commitada")
 
-      // Buscar dados atualizados
-      const updated = await fetch(`${process.env.NEXTAUTH_URL}/api/user/profile`).then((r) => r.json())
+      // Retornar dados atualizados
+      const { rows: updatedRows } = await query(
+        `SELECT 
+          u.id, u.email, u.name,
+          p.id as "profileId", p."personType", p.cpf, p.cnpj, 
+          p."companyName", p.phone,
+          a.id as "addressId", a.line1, a.line2, a.city, 
+          a.state, a."postalCode"
+        FROM public."User" u
+        LEFT JOIN public."UserProfile" p ON p."userId" = u.id
+        LEFT JOIN public."Address" a ON a."userId" = u.id AND a.label = 'billing'
+        WHERE u.id = $1`,
+        [userId]
+      )
 
-      return NextResponse.json(updated)
+      return NextResponse.json(updatedRows[0])
     } catch (error) {
       await query("ROLLBACK")
+      console.error("❌ Rollback executado")
       throw error
     }
-  } catch (error) {
-    console.error("Erro ao atualizar perfil:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+  } catch (error: any) {
+    console.error("❌ Erro ao atualizar perfil:", error)
+    return NextResponse.json({ error: error.message || "Erro interno" }, { status: 500 })
   }
 }
-
