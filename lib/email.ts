@@ -45,7 +45,6 @@ export async function sendResetPasswordEmail({
           <!-- Logo Header -->
           <tr>
             <td align="center" style="padding: 50px 40px 30px 40px; background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);">
-              <div style="background: #90f209; opacity: 0.08; width: 150px; height: 60px; margin: 0 auto -60px auto; border-radius: 50%; filter: blur(30px);"></div>
               <img src="https://app.figtor.com.br/logo.png" alt="Figtor" style="height: 40px; width: auto; display: block; margin: 0 auto;">
             </td>
           </tr>
@@ -154,16 +153,12 @@ export async function sendWelcomeEmail({ to, userName }: { to: string; userName:
           <!-- Logo Header com glow simulado -->
           <tr>
             <td align="center" style="padding: 50px 40px 30px 40px; background: linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%);">
-              <div style="background: #90f209; opacity: 0.1; width: 200px; height: 80px; margin: 0 auto -80px auto; border-radius: 50%; filter: blur(40px);"></div>
               <img src="https://app.figtor.com.br/logo.png" alt="Figtor" style="height: 45px; width: auto; display: block; margin: 0 auto;">
             </td>
           </tr>
           <!-- Content -->
           <tr>
             <td style="padding: 40px;">
-              <div style="text-align: center; padding-bottom: 30px;">
-                <span style="font-size: 80px; line-height: 1; display: inline-block;">🎉</span>
-              </div>
               <h1 style="color: #ffffff; font-size: 36px; font-weight: 700; margin: 0 0 15px 0; text-align: center; letter-spacing: -1px;">
                 Bem-vindo ao Figtor!
               </h1>
