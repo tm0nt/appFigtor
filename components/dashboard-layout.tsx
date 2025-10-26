@@ -4,7 +4,7 @@
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Home,
   Search,
@@ -20,7 +20,6 @@ import {
   CheckCheck,
 } from "lucide-react"
 import Image from "next/image"
-import { signOut } from "next-auth/react"
 import { toast } from "sonner"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import {
@@ -35,6 +34,7 @@ import { ptBR } from "date-fns/locale"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: userData } = useUserProfile()
   const { data: notifications = [] } = useNotifications()
   const markRead = useMarkNotificationRead()
@@ -55,8 +55,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     const t = toast.loading("Saindo...")
     try {
-      await signOut({ redirect: true, callbackUrl: "/" })
+      // revoga sessão própria e limpa cookie
+      await fetch("/api/auth/logout", { method: "POST" })
       toast.success("Sessão encerrada", { id: t })
+      router.push("/")
     } catch {
       toast.error("Não foi possível encerrar a sessão", { id: t })
     }
@@ -125,6 +127,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { href: "/history", icon: Search, label: "Histórico" },
     { href: "/payments", icon: CreditCard, label: "Pagamentos" },
     { href: "/devices", icon: LinkIcon, label: "Aparelhos Conectados" },
+    { href: "/dashboard/sessions", icon: User, label: "Sessões" },
   ]
 
   const getNotificationTypeColor = (type: string) => {
@@ -274,7 +277,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                                 className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
                                   notif.readAt
                                     ? "border border-[#666666]"
-                                    : `${getNotificationTypeColor(notif.type)} animate-pulse`
+                                    : `bg-[#90f209] animate-pulse`
                                 }`}
                               />
                               <div className="flex-1 min-w-0">
